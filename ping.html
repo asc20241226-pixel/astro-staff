@@ -1,0 +1,4 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>ping</title></head><body><pre id="o">...</pre><script>
+fetch("https://script.google.com/macros/s/AKfycbzeSjcZ-AmVS12Y68j64GarYDPBvpqBiwB93BIiYEXcLXIgVL8dcWgTwImy-OjYYxm8/exec",{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({fn:"liffInit",args:["dummy"]})})
+.then(function(r){return r.json()}).then(function(j){document.getElementById("o").textContent="OK "+(j.error?"error="+j.error:"result")}).catch(function(e){document.getElementById("o").textContent="NG "+e.message});
+</script></body></html>
