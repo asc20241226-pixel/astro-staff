@@ -62,9 +62,11 @@ function start(d) {
   h += '<div class="card"><h2>基本情報</h2><label class="f">区分<em>必須</em></label>' + seg("reg_type", ["アルバイト", "社員"], 1) +
     fld("氏名（フルネーム）", "name", "text", 1, "例：山田 太郎") + fld("フリガナ", "kana", "text", 1, "例：ヤマダ タロウ") +
     fld("生年月日", "birthday", "date", 1) + fld("電話番号", "tel", "tel", 1, "例：090-1234-5678") + fld("メールアドレス", "email", "email", 0) +
-    fld("郵便番号", "zip", "tel", 0, "例：564-0044") + '<label class="f" for="address">住所<em>必須</em></label><textarea id="address"></textarea>' +
+    fld("郵便番号（入れると住所が途中まで入ります）", "zip", "tel", 0, "例：564-0044") + '<div class="note" id="zipmsg"></div><label class="f" for="address">住所<em>必須</em></label><textarea id="address" placeholder="番地・建物名・部屋番号まで"></textarea>' +
     fld("入社日（わかる人だけ）", "hire_date", "date", 0) + "</div>";
-  h += '<div class="card"><h2>通勤</h2>' + fld("最寄り駅", "station", "text", 0, "例：江坂") +
+  h += '<div class="card"><h2>通勤</h2>' + fld("自宅からの最寄り駅", "station", "text", 0, "例：江坂") +
+    '<label class="f" for="dest">交通費を調べる（行き先の駅）</label><div style="display:flex;gap:6px"><input type="text" id="dest" value="江坂" style="flex:1"><button type="button" id="yahoo" style="flex:none;height:46px;padding:0 12px;border:1.5px solid #141A2E;background:#fff;border-radius:10px;font-weight:800;font-size:13px">Yahoo!乗換案内で調べる</button></div>' +
+    '<div class="note">自宅の最寄り駅から行き先までの運賃を調べて、下の「片道の交通費」に入れてください。</div>' +
     '<label class="f" for="commute">通勤の方法</label><select id="commute"><option value="">選んでください</option><option>電車・バス</option><option>バイク</option><option>自家用車</option><option>自転車・徒歩</option><option>その他</option></select>' +
     fld("片道の交通費（電車・バス・円）", "fare_oneway", "number", 0) +
     '<label class="f" for="drive_license">運転免許</label><select id="drive_license"><option value="">選んでください</option><option>普通（AT限定）</option><option>普通</option><option>準中型・中型以上</option><option>持っていない</option></select></div>';
@@ -84,6 +86,29 @@ function start(d) {
   h += '<div id="msg" class="card hide"></div><div class="foot"><button id="go">この内容で登録する</button></div>';
   $("app").innerHTML = h;
   document.querySelectorAll('input[name=experience]').forEach(function (r) { r.onchange = function () { $("expbox").className = r.value === "経験者" ? "" : "hide"; }; });
+  $("zip").oninput = function () {
+    var z = this.value.replace(/[^0-9０-９]/g, "").replace(/[０-９]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); });
+    if (z.length !== 7) return;
+    $("zipmsg").textContent = "住所を探しています…";
+    window.__zip = function (r) {
+      var a = r && r.results && r.results[0];
+      if (!a) { $("zipmsg").textContent = "この郵便番号の住所が見つかりませんでした。住所は手で入れてください。"; return; }
+      var t = a.address1 + a.address2 + a.address3, ad = $("address");
+      if (!ad.value.trim() || ad.value.indexOf(t) !== 0) ad.value = t;
+      $("zipmsg").textContent = "「" + t + "」まで入れました。続きの番地・建物名を入れてください。";
+      ad.focus(); ad.setSelectionRange(ad.value.length, ad.value.length);
+    };
+    var sc = document.createElement("script");
+    sc.src = "https://zipcloud.ibsnet.co.jp/api/search?callback=__zip&zipcode=" + z;
+    sc.onerror = function () { $("zipmsg").textContent = "住所の自動入力が使えませんでした。手で入れてください。"; };
+    document.body.appendChild(sc);
+  };
+  $("yahoo").onclick = function () {
+    var from = val("station"), to = val("dest");
+    if (!from) { alertBox("先に「自宅からの最寄り駅」を入れてください"); return; }
+    var url = "https://transit.yahoo.co.jp/search/result?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to || "江坂");
+    if (window.liff && liff.isInClient && liff.isInClient()) liff.openWindow({ url: url, external: false }); else window.open(url, "_blank");
+  };
   document.querySelectorAll('input[type=file]').forEach(function (inp) { inp.onchange = function () { addFiles(inp.getAttribute("data-f"), inp.files); }; });
   $("go").onclick = submit;
 }
@@ -103,6 +128,7 @@ function addFiles(field, list) {
     img.src = url;
   });
 }
+function alertBox(t) { var m = $("msg"); m.className = "card"; m.innerHTML = '<span class="ng">' + esc(t) + "</span>"; m.scrollIntoView({ behavior: "smooth" }); }
 function val(id) { var e = $(id); return e ? e.value.trim() : ""; }
 function radio(n) { var e = document.querySelector('input[name=' + n + ']:checked'); return e ? e.value : ""; }
 function submit() {
@@ -120,7 +146,7 @@ function submit() {
   var b = $("go"); b.disabled = true; b.textContent = "送っています…";
   m.innerHTML = "送っています…（写真があると少し時間がかかります）";
   call("meiboSubmit", [tok, d, FILES.id_files.concat(FILES.license_files)], function (r) {
-    $("app").innerHTML = '<div class="card"><div class="ok">登録を受け付けました ✅</div><p>' + esc(d.name) + ' さん、ありがとうございます。管制が確認したら、シフト提出など新しいしくみが使えるようになります。</p><p class="note">直したいところがあれば、もう一度このリンクから送ってください（新しい方を使います）。</p></div>';
+    $("app").innerHTML = '<div class="card"><div class="ok">登録を受け付けました ✅</div>' + (r.fileNg ? '<p class="ng">写真だけうまく送れませんでした。管制から写真をお願いすることがあります。</p>' : '') + '<p>' + esc(d.name) + ' さん、ありがとうございます。管制が確認したら、シフト提出など新しいしくみが使えるようになります。</p><p class="note">直したいところがあれば、もう一度このリンクから送ってください（新しい方を使います）。</p></div>';
   });
 }
 </script>
