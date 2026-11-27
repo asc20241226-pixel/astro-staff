@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ASTRO マイシフト</title>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;background:#F4F3EE;color:#141A2E;font-size:15px}
+header{background:#111;color:#FFCC00;padding:14px 16px;font-weight:900;font-size:18px;display:flex;justify-content:space-between;align-items:center}
+header span{color:#fff;font-size:13px;font-weight:700}
+.wrap{padding:12px 12px 110px;max-width:640px;margin:0 auto}
+.tabs{display:flex;gap:8px;margin-bottom:10px}
+.tabs button{flex:1;height:44px;border-radius:10px;border:1.5px solid #141A2E;background:#fff;font-weight:800;font-size:14px}
+.tabs button.on{background:#141A2E;color:#FFCC00}
+.sum{font-size:13px;color:#5A5F6B;margin:0 2px 10px}
+.day{background:#fff;border-radius:14px;padding:12px 14px;margin-bottom:8px;border:1px solid #E4E2DA}
+.day.chg{border:2px solid #F97316}
+.day.cx{opacity:.6}
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.dt{font-weight:900;font-size:17px}.dt small{font-size:12px;font-weight:700;margin-left:2px}
+.sun .dt{color:#B42318}.sat .dt{color:#1D4ED8}
+.sh{border-radius:8px;padding:3px 10px;font-size:12px;font-weight:800;white-space:nowrap}
+.sh.d{background:#FEF3C7;color:#7C5200}.sh.n{background:#141A2E;color:#fff}
+.site{font-weight:900;font-size:16px;margin-top:6px}
+.sub{font-size:12px;color:#5A5F6B;margin-top:2px}
+.mates{font-size:13px;margin-top:8px;line-height:1.6}.mates b{color:#5A5F6B;font-weight:700}
+.memo{font-size:12px;background:#FAFAF7;border-radius:8px;padding:6px 8px;margin-top:6px;line-height:1.6}
+.tag{display:inline-block;font-size:11px;font-weight:900;border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:2px}
+.tag.chg{background:#F97316;color:#fff}.tag.cx{background:#B42318;color:#fff}.tag.kk{background:#7C3AED;color:#fff}
+.empty{background:#fff;border-radius:14px;padding:18px;text-align:center;color:#5A5F6B;line-height:1.7}
+.foot{position:fixed;left:0;right:0;bottom:0;background:#fff;padding:10px 12px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -4px 12px rgba(0,0,0,.08)}
+.foot button{width:100%;height:52px;border:0;border-radius:12px;background:#FFCC00;font-size:17px;font-weight:900;color:#141A2E}
+.foot .done{text-align:center;font-weight:800;color:#14532D;padding:12px 0}
+.ng{color:#8A1C14;font-weight:700}
+</style></head>
+<body>
+<header>ASTRO マイシフト<span id="who"></span></header>
+<div class="wrap" id="app"><div class="empty">読み込み中…</div></div>
+<div class="foot" id="foot" style="display:none"></div>
+<script>
+var LIFF_ID = "2012816036-dHnf7VvX";
+var API = "https://script.google.com/macros/s/AKfycbzeSjcZ-AmVS12Y68j64GarYDPBvpqBiwB93BIiYEXcLXIgVL8dcWgTwImy-OjYYxm8/exec";
+var tok = "", D = null, cur = 0;
+function $(i) { return document.getElementById(i); }
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+function err(e) { $("app").innerHTML = '<div class="empty"><span class="ng">' + esc(e && e.message || e) + "</span></div>"; }
+function call(fn, args, ok) {
+  fetch(API, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ fn: fn, args: args }) })
+    .then(function (r) { return r.json(); }).then(function (j) { if (j.error) throw new Error(j.error); ok(j.result); }).catch(err);
+}
+liff.init({ liffId: LIFF_ID }).then(function () {
+  if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
+  tok = liff.getIDToken(); call("myShiftInit", [tok], start);
+}).catch(err);
+function start(d) {
+  D = d;
+  if (!d.ok) { $("app").innerHTML = '<div class="empty">まだ名簿の登録が済んでいないため、マイシフトを見られません。<br>管制に連絡してください。</div>'; return; }
+  $("who").textContent = d.staff.name + " さん";
+  if (!d.months.length) { $("app").innerHTML = '<div class="empty">まだ公開されたシフトはありません。<br>シフトが出たらLINEでお知らせします。</div>'; return; }
+  cur = d.months.length - 1;
+  draw();
+}
+function draw() {
+  var m = D.months[cur], h = "";
+  if (D.months.length > 1) h += '<div class="tabs">' + D.months.map(function (x, i) { return '<button data-t="' + i + '"' + (i === cur ? ' class="on"' : "") + ">" + esc(x.title) + "</button>"; }).join("") + "</div>";
+  var act = m.items.filter(function (x) { return x.status !== "キャンセル"; });
+  var dn = act.filter(function (x) { return x.shift !== "夜勤"; }).length, nn = act.length - dn;
+  h += '<div class="sum">' + esc(m.title) + "の出勤 " + act.length + "日（日勤 " + dn + "・夜勤 " + nn + "）</div>";
+  if (!m.items.length) h += '<div class="empty">' + esc(m.title) + "は、まだ配置がありません。</div>";
+  m.items.forEach(function (x) {
+    var cx = x.status === "キャンセル";
+    h += '<div class="day' + (x.changed ? " chg" : "") + (cx ? " cx" : "") + (x.w === 0 ? " sun" : x.w === 6 ? " sat" : "") + '">' +
+      '<div class="top"><span class="dt">' + esc(x.md) + (x.changed ? '<span class="tag chg">変更あり</span>' : "") + (cx ? '<span class="tag cx">中止</span>' : "") + (x.kankatsu ? '<span class="tag kk">管轄</span>' : "") + "</span>" +
+      '<span class="sh ' + (x.shift === "夜勤" ? "n" : "d") + '">' + esc(x.shift) + (x.time ? " " + esc(x.time) : "") + "</span></div>" +
+      '<div class="site">' + esc(x.site) + "</div>" + (x.client ? '<div class="sub">' + esc(x.client) + "</div>" : "") +
+      (x.memos.length ? '<div class="memo">' + x.memos.map(esc).join("<br>") + "</div>" : "") +
+      ((x.same.length || x.other.length) ? '<div class="mates">' + (x.same.length ? "<b>同じ班：</b>" + x.same.map(esc).join("・") + "<br>" : "") + (x.other.length ? "<b>" + (x.same.length ? "同じ現場：" : "一緒に入る人：") + "</b>" + x.other.map(esc).join("・") : "") + "</div>" : "") +
+      "</div>";
+  });
+  $("app").innerHTML = h;
+  var f = $("foot"); f.style.display = "block";
+  f.innerHTML = m.confirmedAt ? '<div class="done">' + esc(m.title) + "のシフトは " + esc(m.confirmedAt) + " に確認済みです ✅</div>" : '<button id="ok">' + esc(m.title) + "のシフトを確認しました</button>";
+  if ($("ok")) $("ok").onclick = function () { this.disabled = true; this.textContent = "送っています…"; call("myShiftConfirm", [tok, m.ym], function (r) { m.confirmedAt = r.at; draw(); }); };
+}
+document.addEventListener("click", function (e) { var t = e.target; if (t.dataset && t.dataset.t != null) { cur = +t.dataset.t; draw(); } });
+</script>
+</body></html>
