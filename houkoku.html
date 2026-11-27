@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ASTRO 報告</title>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;background:#F4F3EE;color:#141A2E;font-size:15px}
+header{background:#111;color:#FFCC00;padding:14px 16px;font-weight:900;font-size:18px;display:flex;justify-content:space-between;align-items:center}
+header span{color:#fff;font-size:13px;font-weight:700}
+.wrap{padding:12px 12px 40px;max-width:640px;margin:0 auto}
+.card{background:#fff;border-radius:14px;padding:14px;margin-bottom:12px;border:1px solid #E4E2DA}
+.card.ok{border:2px solid #16A34A}
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.dt{font-weight:900;font-size:16px}
+.sh{border-radius:8px;padding:3px 10px;font-size:12px;font-weight:800}
+.sh.d{background:#FEF3C7;color:#7C5200}.sh.n{background:#141A2E;color:#fff}
+.site{font-weight:900;font-size:18px;margin-top:6px}
+.sub{font-size:13px;color:#5A5F6B;margin-top:2px}
+h3{font-size:14px;margin:16px 0 8px;font-weight:900}
+.seg{display:flex;gap:8px;flex-wrap:wrap}
+.seg button{flex:1;min-width:30%;height:48px;border-radius:10px;border:1.5px solid #141A2E;background:#fff;font-weight:800;font-size:15px;color:#141A2E}
+.seg button.on{background:#141A2E;color:#FFCC00}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{height:38px;padding:0 12px;border-radius:19px;border:1.5px solid #9CA3AF;background:#fff;font-weight:700;font-size:13px;color:#141A2E}
+.chips button.on{background:#1D4ED8;border-color:#1D4ED8;color:#fff}
+select,input{width:100%;height:46px;border-radius:10px;border:1.5px solid #9CA3AF;padding:0 10px;font-size:16px;background:#fff;color:#141A2E}
+.row{display:flex;gap:8px;align-items:center}
+.lnk{display:block;text-align:center;margin:8px 0;padding:11px;border-radius:10px;background:#EEF2FF;color:#1D4ED8;font-weight:800;text-decoration:none;font-size:14px}
+.same{width:100%;height:44px;border-radius:10px;border:1.5px dashed #16A34A;background:#F0FDF4;color:#14532D;font-weight:800;font-size:14px;margin-bottom:8px}
+.go{width:100%;height:54px;border:0;border-radius:12px;background:#FFCC00;font-size:17px;font-weight:900;color:#141A2E;margin-top:16px}
+.go:disabled{opacity:.5}
+.done{background:#F0FDF4;border-radius:10px;padding:10px 12px;margin-top:10px;font-weight:800;color:#14532D;line-height:1.6}
+.empty{background:#fff;border-radius:14px;padding:18px;text-align:center;color:#5A5F6B;line-height:1.7}
+.ng{color:#8A1C14;font-weight:700}
+.note{font-size:12px;color:#5A5F6B;line-height:1.6;margin-top:6px}
+</style></head>
+<body>
+<header><span id="ttl" style="color:#FFCC00;font-size:18px;font-weight:900">ASTRO 報告</span><span id="who"></span></header>
+<div class="wrap" id="app"><div class="empty">読み込み中…</div></div>
+<script>
+var LIFF_ID = "2012816036-dHnf7VvX";
+var API = "https://script.google.com/macros/s/AKfycbzeSjcZ-AmVS12Y68j64GarYDPBvpqBiwB93BIiYEXcLXIgVL8dcWgTwImy-OjYYxm8/exec";
+var SEND_CHAT = false;  /* true にすると、押したときにチャットにも「只今出発しました」等を流す */
+var LINES = ["JR", "阪急", "阪神", "京阪", "近鉄", "南海", "大阪メトロ", "北大阪急行", "大阪モノレール", "泉北高速", "能勢電鉄", "神戸市営地下鉄", "京都市営地下鉄", "山陽電鉄", "市バス", "その他のバス", "その他"];
+var MODE = /m=done/.test(location.search + location.hash) ? "done" : "start";
+var tok = "", D = null, F = {};
+function $(i) { return document.getElementById(i); }
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+function err(e) { alert2(e && e.message || e); }
+function alert2(t) { var b = $("msg"); if (b) { b.innerHTML = '<span class="ng">' + esc(t) + "</span>"; b.scrollIntoView({ block: "center" }); } else $("app").innerHTML = '<div class="empty"><span class="ng">' + esc(t) + "</span></div>"; }
+function call(fn, args, ok, fail) {
+  fetch(API, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ fn: fn, args: args }) })
+    .then(function (r) { return r.json(); }).then(function (j) { if (j.error) throw new Error(j.error); ok(j.result); }).catch(function (e) { if (fail) fail(); err(e); });
+}
+function chat(text) { if (!SEND_CHAT) return; try { if (liff.isInClient()) liff.sendMessages([{ type: "text", text: text }]).catch(function () {}); } catch (x) {} }
+function tm(iso) { if (!iso) return ""; var d = new Date(iso); return d.getHours() + ":" + ("0" + d.getMinutes()).slice(-2); }
+function hm(m) { m = (m + 1440) % 1440; return ("0" + Math.floor(m / 60)).slice(-2) + ":" + ("0" + m % 60).slice(-2); }
+function min(t) { var p = String(t || "0:0").split(":"); return (+p[0]) * 60 + (+p[1]); }
+
+$("ttl").textContent = MODE === "done" ? "ASTRO 業務完了報告" : "ASTRO 出発報告";
+document.title = $("ttl").textContent;
+liff.init({ liffId: LIFF_ID }).then(function () {
+  if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
+  tok = liff.getIDToken(); call("reportInit", [tok], start);
+}).catch(err);
+
+function start(d) {
+  D = d;
+  if (!d.ok) { $("app").innerHTML = '<div class="empty">まだ名簿の登録が済んでいないため、報告できません。<br>管制に連絡してください。</div>'; return; }
+  $("who").textContent = d.staff.name + " さん";
+  if (!d.items.length) { $("app").innerHTML = '<div class="empty">今日の配置が見つかりません。<br>管制に連絡してください。</div>'; return; }
+  d.items.forEach(function (it) {
+    F[it.id] = { ot: null, end: "", transport: null, lines: {}, fare: "", st: it.stations[0] || "" };
+  });
+  draw();
+}
+function head(it) {
+  return '<div class="top"><div class="dt">' + esc(it.md) + '</div><span class="sh ' + (it.shift === "夜勤" ? "n" : "d") + '">' + esc(it.shift) + "</span></div>" +
+    '<div class="site">' + esc(it.site) + '</div><div class="sub">予定 ' + esc(it.start) + "〜" + esc(it.end) + (it.event ? "　／イベント" : "") + "</div>";
+}
+function draw() {
+  $("app").innerHTML = D.items.map(MODE === "done" ? doneCard : startCard).join("") + '<div id="msg"></div>';
+}
+function startCard(it) {
+  return '<div class="card' + (it.departAt ? " ok" : "") + '">' + head(it) +
+    (it.departAt ? '<div class="done">✅ ' + tm(it.departAt) + " に出発報告しました</div>"
+      : '<button class="go" data-dep="' + it.id + '">🚃 出発しました</button>') + "</div>";
+}
+function doneCard(it) {
+  if (it.doneAt) {
+    return '<div class="card ok">' + head(it) + '<div class="done">✅ ' + tm(it.doneAt) + " に完了報告しました<br>" +
+      (Number(it.ot) > 0 ? "残業あり（" + esc(it.actualEnd) + " まで）" : "残業なし") + "<br>交通費：" +
+      (Number(it.fare) > 0 ? "実費 " + esc(it.fare) + "円" : esc(it.transport || "なし")) + "</div></div>";
+  }
+  var f = F[it.id], h = '<div class="card">' + head(it);
+  h += "<h3>残業はありましたか？</h3><div class=\"seg\">" + seg(it.id, "ot", false, "なし（予定どおり）", f.ot === false) + seg(it.id, "ot", true, "あり", f.ot === true) + "</div>";
+  if (f.ot) {
+    var e = min(it.end), opts = '<option value="">終わった時刻を選ぶ</option>';
+    for (var m = 15; m <= 6 * 60; m += 15) opts += '<option value="' + hm(e + m) + '"' + (f.end === hm(e + m) ? " selected" : "") + ">" + hm(e + m) + "（予定より " + (m >= 60 ? Math.floor(m / 60) + "時間" : "") + (m % 60 ? m % 60 + "分" : "") + "）</option>";
+    h += '<div style="margin-top:8px"><select data-end="' + it.id + '">' + opts + "</select></div>";
+  }
+  h += "<h3>交通費</h3>";
+  if (!it.event) {
+    h += '<div class="seg">' + seg(it.id, "transport", "あり", "あり（500円）", f.transport === "あり") + seg(it.id, "transport", "なし", "なし", f.transport === "なし") + "</div>";
+  } else {
+    if (it.last) h += '<button class="same" data-same="' + it.id + '">↺ 前回と同じ（' + esc(it.last.fare) + "円）</button>";
+    var st = it.stations.length > 1 ? '<select data-st="' + it.id + '">' + it.stations.map(function (s) { return "<option" + (s === f.st ? " selected" : "") + ">" + esc(s) + "</option>"; }).join("") + "</select>" : "";
+    h += '<div class="sub">自宅の最寄り駅：<b>' + esc(D.home || "（未登録）") + "</b>　→　現場の最寄り駅：<b>" + esc(it.stations.length === 1 ? it.stations[0] : (it.stations.length ? "" : "（未登録）")) + "</b></div>" + st;
+    if (D.home && f.st) h += '<a class="lnk" target="_blank" href="https://transit.yahoo.co.jp/search/result?from=' + encodeURIComponent(D.home) + "&to=" + encodeURIComponent(f.st) + '">🔍 Yahoo!乗換案内で調べる</a>';
+    h += '<div class="note">使った路線を全部選んでください</div><div class="chips">' + LINES.map(function (l) { return '<button data-line="' + it.id + '" data-v="' + esc(l) + '" class="' + (f.lines[l] ? "on" : "") + '">' + esc(l) + "</button>"; }).join("") + "</div>";
+    h += '<h3>金額（往復）</h3><div class="row"><input type="number" inputmode="numeric" placeholder="例 960" data-fare="' + it.id + '" value="' + esc(f.fare) + '"><b>円</b></div>';
+  }
+  h += '<button class="go" data-done="' + it.id + '">✅ 業務完了を報告する</button></div>';
+  return h;
+}
+function seg(id, k, v, label, on) { return '<button data-id="' + id + '" data-k="' + k + '" data-v="' + JSON.stringify(v).replace(/"/g, "&quot;") + '" class="' + (on ? "on" : "") + '">' + esc(label) + "</button>"; }
+function item(id) { return D.items.filter(function (x) { return String(x.id) === String(id); })[0]; }
+
+document.addEventListener("click", function (e) {
+  var b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.k) { F[b.dataset.id][b.dataset.k] = JSON.parse(b.dataset.v); return draw(); }
+  if (b.dataset.line) { var f = F[b.dataset.line]; f.lines[b.dataset.v] = !f.lines[b.dataset.v]; return draw(); }
+  if (b.dataset.same) { var it = item(b.dataset.same), g = F[it.id]; g.fare = it.last.fare; g.sameRoute = it.last.route; return send(it); }
+  if (b.dataset.dep) {
+    b.disabled = true; b.textContent = "送っています…";
+    return call("reportDepart", [tok, b.dataset.dep], function (r) { item(b.dataset.dep).departAt = new Date().toISOString(); chat("只今出発しました"); draw(); }, function () { b.disabled = false; b.textContent = "🚃 出発しました"; });
+  }
+  if (b.dataset.done) return send(item(b.dataset.done));
+});
+document.addEventListener("change", function (e) {
+  var t = e.target;
+  if (t.dataset.end) F[t.dataset.end].end = t.value;
+  if (t.dataset.st) { F[t.dataset.st].st = t.value; draw(); }
+});
+document.addEventListener("input", function (e) { if (e.target.dataset.fare) F[e.target.dataset.fare].fare = e.target.value; });
+
+function send(it) {
+  var f = F[it.id], o = { ot: f.ot === true, end: f.end };
+  if (f.ot === null) return alert2("残業の「なし／あり」を選んでください");
+  if (f.ot && !f.end) return alert2("終わった時刻を選んでください");
+  if (it.event) {
+    var ls = Object.keys(f.lines).filter(function (k) { return f.lines[k]; });
+    o.fareMode = "event"; o.fare = f.fare;
+    o.route = f.sameRoute || ((D.home || "") + " → " + (f.st || "") + "／" + ls.join("・") + "／往復 " + f.fare + "円");
+    if (!f.sameRoute && !ls.length) return alert2("使った路線を選んでください");
+    if (!(Number(f.fare) > 0)) return alert2("交通費（往復）の金額を入れてください");
+  } else {
+    if (!f.transport) return alert2("交通費の「あり／なし」を選んでください");
+    o.transport = f.transport;
+  }
+  var btn = document.querySelector('[data-done="' + it.id + '"]'); if (btn) { btn.disabled = true; btn.textContent = "送っています…"; }
+  call("reportDone", [tok, it.id, o], function (r) {
+    it.doneAt = new Date().toISOString(); it.ot = r.ot; it.actualEnd = f.ot ? f.end : it.end;
+    if (it.event) it.fare = f.fare; else it.transport = f.transport;
+    chat("業務完了いたしました"); draw();
+  }, function () { if (btn) { btn.disabled = false; btn.textContent = "✅ 業務完了を報告する"; } });
+}
+</script>
+</body></html>
